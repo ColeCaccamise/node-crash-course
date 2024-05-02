@@ -1,27 +1,43 @@
 // new entry point
 import http from 'http';
+import fs from 'fs/promises';
+import url from 'url';
+import path from 'path';
 const PORT = process.env.PORT;
 
-const server = http.createServer((req, res) => {
-	if (req.url == '/') {
-		res.writeHead(200, {
-			'Content-Type': 'text/html',
-		});
-		res.end('<h1>Home Page</h1>');
-	} else if (req.url == '/about') {
-		res.writeHead(200, {
-			'Content-Type': 'text/html',
-		});
-		res.end('<h1>About page</h1>');
-	} else {
-		res.writeHead(404, {
-			'Content-Type': 'text/html',
-		});
-		res.end('<h1>Page not found! Where are you trying to go...</h1>');
-	}
+const __filename = url.fileURLToPath(import.meta.url); // gives file URL to whatever this file this is in
+const __dirname = path.dirname(__filename);
 
-	console.log(req.url);
-	console.log(req.method);
+// console.log(import.meta.url);
+console.log(__filename);
+console.log(__dirname);
+
+const server = http.createServer(async (req, res) => {
+	try {
+		let filePath;
+
+		if (req.method === 'GET') {
+			if (req.url == '/') {
+				filePath = path.join(__dirname, 'public', 'index.html');
+			} else if (req.url == '/about') {
+				filePath = path.join(__dirname, 'public', 'about.html');
+			} else {
+				throw new Error('Not Found');
+			}
+		} else {
+			throw new Error('GET is the only method allowed.');
+		}
+
+		const data = await fs.readFile(filePath);
+		res.setHeader('Content-Type', 'text/html');
+		res.write(data);
+		res.end();
+	} catch (err) {
+		res.writeHead(500, {
+			'Content-Type': 'text/plain',
+		});
+		res.end('Only GET requests are allowed!');
+	}
 
 	// res.statusCode = 404;
 

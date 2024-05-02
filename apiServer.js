@@ -6,41 +6,53 @@ const users = [
 	{ id: 2, name: 'Jane Doe' },
 	{ id: 3, name: 'Jim Doe' },
 ];
-const server = createServer((req, res) => {
-	if (req.url === '/api/users' && req.method === 'GET') {
-		res.writeHead(200, {
-			'Content-Type': 'application/json',
-		});
-		res.end(JSON.stringify(users));
-	} else if (req.url.match(/\/api\/users\/([0-9]+)/) && req.method === 'GET') {
-		const id = req.url.split('/')[3];
-		const user = users.find((user) => user.id === parseInt(id));
 
-		if (user) {
+// logger middleware
+const logger = (req, res, next) => {
+	console.log(`${req.method} ${req.url}`);
+	next();
+};
+
+const server = createServer((req, res) => {
+	logger(req, res, () => {
+		if (req.url === '/api/users' && req.method === 'GET') {
 			res.writeHead(200, {
 				'Content-Type': 'application/json',
 			});
-			res.end(JSON.stringify(user));
+			res.end(JSON.stringify(users));
+		} else if (
+			req.url.match(/\/api\/users\/([0-9]+)/) &&
+			req.method === 'GET'
+		) {
+			const id = req.url.split('/')[3];
+			const user = users.find((user) => user.id === parseInt(id));
+
+			if (user) {
+				res.writeHead(200, {
+					'Content-Type': 'application/json',
+				});
+				res.end(JSON.stringify(user));
+			} else {
+				res.writeHead(404, {
+					'Content-Type': 'application/json',
+				});
+				res.end(
+					JSON.stringify({
+						message: `No user with id ${id} found.`,
+					})
+				);
+			}
 		} else {
 			res.writeHead(404, {
 				'Content-Type': 'application/json',
 			});
 			res.end(
 				JSON.stringify({
-					message: `No user with id ${id} found.`,
+					message: 'Route not found.',
 				})
 			);
 		}
-	} else {
-		res.writeHead(404, {
-			'Content-Type': 'application/json',
-		});
-		res.end(
-			JSON.stringify({
-				message: 'Route not found.',
-			})
-		);
-	}
+	});
 });
 
 server.listen(PORT, () => {

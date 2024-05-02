@@ -1,4 +1,5 @@
 import { createServer } from 'http';
+import { getuid } from 'process';
 const PORT = process.env.PORT;
 
 const users = [
@@ -13,45 +14,84 @@ const logger = (req, res, next) => {
 	next();
 };
 
+// JSON middleware
+const jsonMiddleware = (req, res, next) => {
+	res.setHeader('Content-Type', 'application/json');
+	next();
+};
+
+// Route handler for GET /api/users (not a middlware function)
+const getUsersHandler = (req, res) => {
+	res.write(JSON.stringify(users));
+	res.end();
+};
+
+// Route handler for GET /api/users/:id
+const getUserByIdHandler = (req, res) => {
+	const id = req.url.split('/')[3];
+	const user = users.find((user) => user.id === parseInt(id));
+
+	if (user) {
+		res.statusCode = 200;
+		res.end(JSON.stringify(user));
+	} else {
+		res.statusCode = 404;
+
+		res.end(
+			JSON.stringify({
+				message: `No user with id ${id} found.`,
+			})
+		);
+	}
+};
+
+// Not found handler
+const notFoundHandler = (req, res) => {
+	res.statusCode = 404;
+	res.end(
+		JSON.stringify({
+			message: 'Route not found.',
+		})
+	);
+};
+
+// Route handler for POST /api/users
+const createUserHandler = (req, res) => {
+	let body = '';
+	// listen for data
+	req.on('data', (chunk) => {
+		body += chunk.toString();
+	});
+
+	req.on('end', () => {
+		if (body) {
+			const newUser = JSON.parse(body);
+			users.push(newUser);
+			res.statusCode = 201;
+			res.write(JSON.stringify(newUser));
+			res.end();
+		} else {
+			notFoundHandler(req, res);
+		}
+	});
+};
+
 const server = createServer((req, res) => {
 	logger(req, res, () => {
-		if (req.url === '/api/users' && req.method === 'GET') {
-			res.writeHead(200, {
-				'Content-Type': 'application/json',
-			});
-			res.end(JSON.stringify(users));
-		} else if (
-			req.url.match(/\/api\/users\/([0-9]+)/) &&
-			req.method === 'GET'
-		) {
-			const id = req.url.split('/')[3];
-			const user = users.find((user) => user.id === parseInt(id));
-
-			if (user) {
-				res.writeHead(200, {
-					'Content-Type': 'application/json',
-				});
-				res.end(JSON.stringify(user));
+		jsonMiddleware(req, res, () => {
+			if (req.url === '/api/users' && req.method === 'GET') {
+				getUsersHandler(req, res);
+			} else if (
+				req.url.match(/\/api\/users\/([0-9]+)/) &&
+				req.method === 'GET'
+			) {
+				getUserByIdHandler(req, res);
+			} else if (req.url === '/api/users' && req.method === 'POST') {
+				createUserHandler(req, res);
 			} else {
-				res.writeHead(404, {
-					'Content-Type': 'application/json',
-				});
-				res.end(
-					JSON.stringify({
-						message: `No user with id ${id} found.`,
-					})
-				);
+				notFoundHandler(req, res);
 			}
-		} else {
-			res.writeHead(404, {
-				'Content-Type': 'application/json',
-			});
-			res.end(
-				JSON.stringify({
-					message: 'Route not found.',
-				})
-			);
-		}
+		});
 	});
 });
 
